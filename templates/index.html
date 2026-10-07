@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>AI Resume Screening & Skill Gap Prediction</title>
+</head>
+
+<body>
+    <div class="app-shell">
+        <header class="topbar">
+            <div class="brand-center">
+                <p class="brand-eyebrow">AI RESUME SCREENING</p>
+                <h1 class="brand-heading">Make Your Resume Work Smarter.</h1>
+                <p class="brand-caption">AI-powered analysis to match your skills with job requirements and uncover
+                    opportunities to improve.</p>
+            </div>
+        </header>
+
+        <main class="page-grid">
+            <section class="hero-panel">
+                <div class="analyzer-card">
+                    <form class="hero-form" action="/analyze" method="POST" enctype="multipart/form-data">
+                        <div class="form-grid">
+                            <div class="upload-card" data-animate>
+                                <div class="upload-header">
+                                    <div class="upload-icon" aria-hidden="true">⤵</div>
+                                    <div class="upload-copy">
+                                        <p class="upload-label">Resume upload</p>
+                                        <p class="upload-subtitle">PDF or DOCX</p>
+                                    </div>
+                                </div>
+                                <div class="drop-zone" id="drop-zone">
+                                    <input type="file" id="resume-upload" name="resume" class="file-input"
+                                        accept=".pdf,.doc,.docx">
+                                    <p class="drop-title">Drag & drop your resume</p>
+                                    <p class="drop-copy">or browse your device to upload a candidate profile.</p>
+                                    <label for="resume-upload" class="upload-button">Browse files</label>
+                                </div>
+                                <p class="upload-note">We analyze your resume instantly for ATS compatibility and key
+                                    skill matches.</p>
+                            </div>
+
+                            <div class="job-card" data-animate>
+                                <div class="job-header">
+                                    <span class="textarea-label">Job description</span>
+                                    <span class="char-counter">Max 2,000 characters</span>
+                                </div>
+                                <textarea name="jd_text"
+                                    placeholder="Paste the job description here to compare against your resume..."></textarea>
+                            </div>
+                        </div>
+
+                        <div class="hero-actions">
+                            <button class="analyze-button" type="submit">
+                                <span class="button-label">Analyze Resume</span>
+                            </button>
+                        </div>
+
+                        <div class="form-footer">
+                            <div id="form-error" class="form-error" role="alert"></div>
+                            <p class="form-hint">Secure upload • Real-time analysis • Data stays private</p>
+                        </div>
+                    </form>
+
+                    <div id="results" class="results-shell">
+                        <div class="results-grid">
+                            <div class="result-card" id="match-score-card">
+                                <h3>Match Score</h3>
+                                <p id="match-score-value"></p>
+                            </div>
+                            <div class="result-card" id="ats-score-card">
+                                <h3>ATS Score</h3>
+                                <p id="ats-score-value"></p>
+                            </div>
+                            <div class="result-card" id="missing-skills-card">
+                                <h3>Missing Skills</h3>
+                                <div id="missing-skills-list" class="tag-list"></div>
+                            </div>
+                            <div class="result-card" id="suggestions-card">
+                                <h3>Suggestions</h3>
+                                <ul id="suggestions-list"></ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        (function () {
+            const fileInput = document.getElementById('resume-upload');
+            const uploadCard = document.querySelector('.upload-card');
+            const dropZone = document.getElementById('drop-zone');
+            const dropTitle = document.querySelector('.drop-title');
+            const submitButton = document.querySelector('.analyze-button');
+            const submitLabel = submitButton.querySelector('.button-label');
+
+            function setActive(on) {
+                uploadCard.classList.toggle('active', on);
+            }
+
+            function setLoading(isLoading) {
+                submitButton.classList.toggle('is-loading', isLoading);
+                submitButton.disabled = isLoading;
+                submitLabel.textContent = isLoading ? 'Analyzing Resume...' : 'Analyze Resume';
+            }
+
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files && e.target.files[0];
+                if (file) {
+                    dropTitle.textContent = file.name;
+                }
+            });
+
+            ['dragenter', 'dragover'].forEach(event => {
+                dropZone.addEventListener(event, e => { e.preventDefault(); setActive(true); });
+            });
+
+            ['dragleave', 'drop'].forEach(event => {
+                dropZone.addEventListener(event, e => {
+                    e.preventDefault();
+                    setActive(false);
+                    if (event === 'drop') {
+                        const dt = e.dataTransfer;
+                        if (dt && dt.files && dt.files[0]) {
+                            fileInput.files = dt.files;
+                            dropTitle.textContent = dt.files[0].name;
+                        }
+                    }
+                });
+            });
+
+            const form = document.querySelector('.hero-form');
+            const resultsContainer = document.getElementById('results');
+            const matchScoreValue = document.getElementById('match-score-value');
+            const atsScoreValue = document.getElementById('ats-score-value');
+            const missingSkillsList = document.getElementById('missing-skills-list');
+            const suggestionsList = document.getElementById('suggestions-list');
+            const formError = document.getElementById('form-error');
+
+            form.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                formError.textContent = '';
+                resultsContainer.classList.remove('visible');
+                missingSkillsList.innerHTML = '';
+                suggestionsList.innerHTML = '';
+                matchScoreValue.textContent = '';
+                atsScoreValue.textContent = '';
+                setLoading(true);
+
+                const formData = new FormData(form);
+                try {
+                    const response = await fetch(form.action, {
+                        method: 'POST',
+                        body: formData,
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        formError.textContent = errorData.error || 'Unable to analyze resume.';
+                        return;
+                    }
+
+                    const result = await response.json();
+                    matchScoreValue.textContent = `${Math.round(result.match_score * 100)}%`;
+                    atsScoreValue.textContent = `${Math.round(result.ats_score)}%`;
+
+                    if (result.jd_extraction_failed) {
+                        const err = document.createElement('p');
+                        err.className = 'result-empty';
+                        err.textContent = 'Unable to identify required skills from this job description.';
+                        missingSkillsList.appendChild(err);
+                    } else if (Array.isArray(result.missing_skills) && result.missing_skills.length > 0) {
+                        result.missing_skills.forEach(skill => {
+                            const tag = document.createElement('span');
+                            tag.textContent = skill;
+                            missingSkillsList.appendChild(tag);
+                        });
+                    } else {
+                        const empty = document.createElement('p');
+                        empty.className = 'result-empty';
+                        empty.textContent = 'No missing skills detected ✓';
+                        missingSkillsList.appendChild(empty);
+                    }
+
+                    if (Array.isArray(result.suggestions) && result.suggestions.length > 0) {
+                        result.suggestions.forEach(item => {
+                            const li = document.createElement('li');
+                            li.textContent = item;
+                            suggestionsList.appendChild(li);
+                        });
+                    } else {
+                        const li = document.createElement('li');
+                        li.textContent = 'No suggestions available.';
+                        suggestionsList.appendChild(li);
+                    }
+
+                    resultsContainer.classList.add('visible');
+                } catch (error) {
+                    formError.textContent = 'Server error. Please try again later.';
+                } finally {
+                    setLoading(false);
+                }
+            });
+        })();
+    </script>
+</body>
+
+</html>

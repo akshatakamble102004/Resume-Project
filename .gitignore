@@ -1,0 +1,26 @@
+# Environment variables (NEVER commit API keys)
+.env
+
+# Virtual environment
+venv/
+ENV/
+env/
+
+# Python cache and testing
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Uploaded/temp files
+static/uploads/
+*.log
+temp_resume.pdf

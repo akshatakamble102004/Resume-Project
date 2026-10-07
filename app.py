@@ -1,3 +1,4 @@
+import os
 import re
 from flask import Flask, render_template, request, jsonify
 from utils.skill_matching import extract_job_skills, extract_resume_skills, match_skills
@@ -90,5 +91,6 @@ def analyze():
 
     return jsonify(final_response)
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
 

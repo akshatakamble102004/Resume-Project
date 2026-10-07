@@ -1,0 +1,12 @@
+.git
+.gitignore
+.env
+venv/
+ENV/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.log
+temp_resume.pdf
+file.docx
